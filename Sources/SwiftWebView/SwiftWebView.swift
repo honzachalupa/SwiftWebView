@@ -2,65 +2,104 @@ import SwiftUI
 import WebKit
 
 public enum WebViewControlsVariant {
-    case fixed, floating, hidden
+    case fixed, closable, hidden
 }
 
 enum NavigationAction: Equatable {
-    case goBack, goForward, reload, goToUrl(String), none
+    case goBack, goForward, reload
+    case goToUrl(String)
+    case none
 }
 
 public struct WebViewControls: View {
-    @Binding var urlString: String
-    var controlsVariant: WebViewControlsVariant
-    var isGoBackEnabled: Bool
-    var isGoForwardEnabled: Bool
-    var onGoBack: () -> Void
-    var onGoForward: () -> Void
-    var onReload: () -> Void
-    var onGoToUrl: (String) -> Void
+    @Binding public var urlString: String
+    @Binding public var paddingTop: Double
+    public var controlsVariant: WebViewControlsVariant
+    public var submitButtonLabel: String
+    public var isGoBackEnabled: Bool
+    public var isGoForwardEnabled: Bool
+    public var onGoBack: () -> Void
+    public var onGoForward: () -> Void
+    public var onReload: () -> Void
+    public var onGoToUrl: (String) -> Void
+    
+    @State private var isControlsPresented: Bool = false
+    
+    func setTopPadding() {
+        paddingTop = isControlsPresented ? 38 : 0
+    }
+    
+    func submitUrl() {
+        if !urlString.isEmpty {
+            var finalUrl = urlString
+
+            // Add https:// prefix if needed
+            if !finalUrl.hasPrefix("http://") && !finalUrl.hasPrefix("https://") {
+                finalUrl = "https://" + finalUrl
+            }
+
+            // Call the provided action to navigate to the URL
+            onGoToUrl(finalUrl)
+        }
+    }
 
     public var body: some View {
-        HStack {
-            Button(action: onGoBack) {
-                Image(systemName: "chevron.left")
-            }
-            .disabled(!isGoBackEnabled)
-
-            Button(action: onGoForward) {
-                Image(systemName: "chevron.right")
-            }
-            .disabled(!isGoForwardEnabled)
-
-            Button(action: onReload) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-            }
-            .disabled(urlString.isEmpty)
-
-            TextField("URL", text: $urlString)
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
-            
-            Button(action: {
-                // Go to URL
-                if !urlString.isEmpty {
-                    var finalUrl = urlString
-                    
-                    // Add https:// prefix if needed
-                    if !finalUrl.hasPrefix("http://") && !finalUrl.hasPrefix("https://") {
-                        finalUrl = "https://" + finalUrl
+        VStack(spacing: 0) {
+            if (isControlsPresented) {
+                HStack(spacing: 12) {
+                    Button(action: onGoBack) {
+                        Image(systemName: "chevron.left")
                     }
+                    .disabled(!isGoBackEnabled)
                     
-                    // Call the provided action to navigate to the URL
-                    onGoToUrl(finalUrl)
+                    Button(action: onGoForward) {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(!isGoForwardEnabled)
+                    
+                    Button(action: onReload) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(urlString.isEmpty)
+                    
+                    TextField("URL", text: $urlString)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .onSubmit { submitUrl() }
+                    
+                    Button(submitButtonLabel) { submitUrl() }
+                        .buttonStyle(.bordered)
+                        .disabled(urlString.isEmpty)
                 }
-            }) {
-                Text("Go")
+                .padding(.horizontal)
+                .padding(.bottom, 5)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .buttonStyle(.bordered)
-            .disabled(urlString.isEmpty)
+            
+            if (controlsVariant == .closable) {
+                Button {
+                    withAnimation {
+                        isControlsPresented.toggle()
+                    }
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .rotationEffect(Angle(degrees: isControlsPresented ? 0 : 180))
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 3)
+            }
+            
+            Spacer()
         }
-        .padding(.horizontal)
-        .padding(.bottom)
+        .animation(.easeInOut, value: isControlsPresented)
+        .onAppear {
+            setTopPadding()
+        }
+        .onChange(of: isControlsPresented) {
+            withAnimation {
+                setTopPadding()
+            }
+        }
     }
 }
 
@@ -76,7 +115,7 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
         _ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!
     ) {
         DispatchQueue.main.async {
-            self.parent.isLoading = true
+            // self.parent.isLoading = true
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
         }
@@ -84,7 +123,7 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         DispatchQueue.main.async {
-            self.parent.isLoading = false
+            // self.parent.isLoading = false
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
 
@@ -99,20 +138,20 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
         _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
     ) {
         DispatchQueue.main.async {
-            self.parent.isLoading = false
+            // self.parent.isLoading = false
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
         }
     }
 }
 
-// MARK: - WebView Representable
 @MainActor
 public struct WebViewRepresentable: UIViewRepresentable {
-    @Binding var urlString: String
-    @Binding var isLoading: Bool
-    @Binding var isGoBackEnabled: Bool
-    @Binding var isGoForwardEnabled: Bool
+    @Binding public var urlString: String
+    // @Binding public var isLoading: Bool
+    @Binding public var isGoBackEnabled: Bool
+    @Binding public var isGoForwardEnabled: Bool
+    
     var navigationAction: NavigationAction?
 
     public func makeCoordinator() -> WebViewCoordinator {
@@ -143,20 +182,20 @@ public struct WebViewRepresentable: UIViewRepresentable {
         // Handle navigation actions
         if let action = navigationAction, action != .none {
             switch action {
-            case .goBack:
-                webView.goBack()
-            case .goForward:
-                webView.goForward()
-            case .reload:
-                webView.reload()
-            case .goToUrl(let url):
-                // Force reload the current URL
-                if let urlToLoad = URL(string: url) {
-                    let request = URLRequest(url: urlToLoad)
-                    webView.load(request)
-                }
-            case .none:
-                break
+                case .goBack:
+                    webView.goBack()
+                case .goForward:
+                    webView.goForward()
+                case .reload:
+                    webView.reload()
+                case .goToUrl(let url):
+                    // Force reload the current URL
+                    if let urlToLoad = URL(string: url) {
+                        let request = URLRequest(url: urlToLoad)
+                        webView.load(request)
+                    }
+                case .none:
+                    break
             }
         }
 
@@ -174,27 +213,37 @@ public struct WebViewRepresentable: UIViewRepresentable {
 }
 
 public struct SwiftWebView: View {
-    @Binding var urlString: String
-    var controls: WebViewControlsVariant = .hidden
+    @Binding public var urlString: String
+    public var controls: WebViewControlsVariant = .hidden
+    public var submitButtonLabel: String = "Go"
+    
+    @State private var paddingTop: Double = 0
     @State private var navigationAction: NavigationAction = .none
-    @State private var isLoading: Bool = false
     @State private var isGoBackEnabled: Bool = false
     @State private var isGoForwardEnabled: Bool = false
     @State private var currentUrl: String = ""
-    
+
     private func goToEnteredUrl(_ url: String) {
-        // Update the main URL string with the input
         urlString = url
         navigationAction = .goToUrl(url)
     }
 
-
     public var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            WebViewRepresentable(
+                urlString: $urlString,
+                isGoBackEnabled: $isGoBackEnabled,
+                isGoForwardEnabled: $isGoForwardEnabled,
+                navigationAction: navigationAction
+            )
+            .padding(.top, paddingTop)
+            
             if controls != .hidden {
                 WebViewControls(
                     urlString: $currentUrl,
+                    paddingTop: $paddingTop,
                     controlsVariant: controls,
+                    submitButtonLabel: submitButtonLabel,
                     isGoBackEnabled: isGoBackEnabled,
                     isGoForwardEnabled: isGoForwardEnabled,
                     onGoBack: { self.navigationAction = .goBack },
@@ -203,14 +252,6 @@ public struct SwiftWebView: View {
                     onGoToUrl: self.goToEnteredUrl
                 )
             }
-            
-            WebViewRepresentable(
-                urlString: $urlString,
-                isLoading: $isLoading,
-                isGoBackEnabled: $isGoBackEnabled,
-                isGoForwardEnabled: $isGoForwardEnabled,
-                navigationAction: navigationAction
-            )
         }
         .onChange(of: navigationAction) { _, newValue in
             // Reset navigation action after it's been processed
@@ -226,6 +267,16 @@ public struct SwiftWebView: View {
     }
 }
 
+#Preview {
+    @Previewable @State
+    var urlString: String = "https://apple.com/"
+
+    SwiftWebView(
+        urlString: $urlString
+    )
+    .ignoresSafeArea(SafeAreaRegions.all, edges: [.bottom])
+}
+
 #Preview("Fixed controls") {
     @Previewable @State
     var urlString: String = "https://apple.com/"
@@ -237,23 +288,13 @@ public struct SwiftWebView: View {
     .ignoresSafeArea(SafeAreaRegions.all, edges: [.bottom])
 }
 
-#Preview("Floating controls") {
+#Preview("Closable controls") {
     @Previewable @State
     var urlString: String = "https://apple.com/"
 
     SwiftWebView(
         urlString: $urlString,
-        controls: .floating
-    )
-    .ignoresSafeArea(SafeAreaRegions.all, edges: [.bottom])
-}
-
-#Preview("Hidden controls") {
-    @Previewable @State
-    var urlString: String = "https://apple.com/"
-
-    SwiftWebView(
-        urlString: $urlString
+        controls: .closable
     )
     .ignoresSafeArea(SafeAreaRegions.all, edges: [.bottom])
 }

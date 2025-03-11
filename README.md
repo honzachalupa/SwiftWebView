@@ -20,7 +20,7 @@ SwiftWebView is a Swift Package that provides an easy-to-use WebView implementat
 ### Swift Package Manager
 
 1. In Xcode, select File > Add Packages...
-2. Enter the repository URL: `https://github.com/yourusername/SwiftWebView.git`
+2. Enter the repository URL: `https://github.com/honzachalupa/SwiftWebView.git`
 3. Select the version or branch you want to use
 4. Click "Add Package"
 
@@ -37,8 +37,7 @@ struct ContentView: View {
 
     var body: some View {
         SwiftWebView(
-            urlString: $urlString,
-            controls: .fixed
+            urlString: $urlString
         )
     }
 }
@@ -48,9 +47,9 @@ struct ContentView: View {
 
 SwiftWebView offers three control variants:
 
-- `.fixed`: Shows controls at the top of the view
-- `.floating`: Shows floating controls (useful for overlay UI)
-- `.hidden`: Hides all controls
+- `.fixed`: Shows controls fixed at the top of the view
+- `.closable`: Shows controls that can be collapsed/expanded with a button
+- `.hidden`: Hides all controls (default)
 
 ```swift
 // With fixed controls
@@ -59,10 +58,28 @@ SwiftWebView(
     controls: .fixed
 )
 
-// With hidden controls
+// With closable controls
+SwiftWebView(
+    urlString: $urlString,
+    controls: .closable
+)
+
+// With hidden controls (default)
 SwiftWebView(
     urlString: $urlString,
     controls: .hidden
+)
+```
+
+### Custom Submit Button Label
+
+You can customize the label of the submit button in the controls:
+
+```swift
+SwiftWebView(
+    urlString: $urlString,
+    controls: .fixed,
+    submitButtonLabel: "Search"
 )
 ```
 
@@ -88,6 +105,26 @@ struct ContentView: View {
     }
 }
 ```
+
+### Full-Screen Implementation
+
+For a full-screen implementation, you can ignore safe areas:
+
+```swift
+SwiftWebView(
+    urlString: $urlString,
+    controls: .closable
+)
+.ignoresSafeArea(SafeAreaRegions.all, edges: [.bottom])
+```
+
+## Features
+
+- Automatic handling of URL prefixes (adds https:// if missing)
+- Built-in navigation controls (back, forward, reload)
+- URL input field with submit functionality
+- Synchronization of displayed URL with the address bar
+- Support for collapsible controls to maximize screen space
 
 ## License
 
