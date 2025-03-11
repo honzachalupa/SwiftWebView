@@ -32,7 +32,7 @@ public struct WebViewControls: View {
     @State private var isControlsPresented: Bool = false
     
     private func setTopPadding() {
-        paddingTop = isControlsPresented ? 38 : 0
+        paddingTop = isControlsPresented ? 35 : 0
     }
     
     private func submitUrl() {
@@ -50,17 +50,19 @@ public struct WebViewControls: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        VStack {
             if (isControlsPresented) {
-                HStack(spacing: 0) {
+                HStack {
                     Button(action: onGoBack) {
                         Image(systemName: "chevron.left")
                     }
+                    .buttonStyle(.borderless)
                     .disabled(!isGoBackEnabled)
                     
                     Button(action: onGoForward) {
                         Image(systemName: "chevron.right")
                     }
+                    .buttonStyle(.borderless)
                     .disabled(!isGoForwardEnabled)
                     
                     Button(action: onReload) {
@@ -72,6 +74,7 @@ public struct WebViewControls: View {
 #if os(iOS) || os(tvOS) || os(visionOS)
                         .autocapitalization(.none)
 #endif
+                        .textFieldStyle(.roundedBorder)
                         .disableAutocorrection(true)
                         .onSubmit { submitUrl() }
                     
@@ -79,8 +82,7 @@ public struct WebViewControls: View {
                         .buttonStyle(.bordered)
                         .disabled(urlString.isEmpty)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 5)
+                .padding(5)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
             
@@ -92,8 +94,11 @@ public struct WebViewControls: View {
                 } label: {
                     Image(systemName: "chevron.up")
                         .rotationEffect(Angle(degrees: isControlsPresented ? 0 : 180))
+                        .padding(5)
+                        .background(Material.ultraThin)
+                        .cornerRadius(5)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
                 .padding(.top, 3)
             }
             
@@ -102,6 +107,12 @@ public struct WebViewControls: View {
         .animation(.easeInOut, value: isControlsPresented)
         .onAppear {
             setTopPadding()
+            
+            if (urlString.isEmpty) {
+                withAnimation {
+                    isControlsPresented = true
+                }
+            }
         }
         .onChange(of: isControlsPresented) {
             withAnimation {
