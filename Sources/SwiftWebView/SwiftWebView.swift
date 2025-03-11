@@ -5,7 +5,7 @@ public enum WebViewControlsVariant {
     case fixed, closable, hidden
 }
 
-enum NavigationAction: Equatable {
+public enum NavigationAction: Equatable {
     case goBack, goForward, reload
     case goToUrl(String)
     case none
@@ -25,11 +25,11 @@ public struct WebViewControls: View {
     
     @State private var isControlsPresented: Bool = false
     
-    func setTopPadding() {
+    private func setTopPadding() {
         paddingTop = isControlsPresented ? 38 : 0
     }
     
-    func submitUrl() {
+    private func submitUrl() {
         if !urlString.isEmpty {
             var finalUrl = urlString
 
@@ -107,7 +107,7 @@ public struct WebViewControls: View {
 public class WebViewCoordinator: NSObject, WKNavigationDelegate {
     var parent: WebViewRepresentable
 
-    init(_ parent: WebViewRepresentable) {
+    public init(_ parent: WebViewRepresentable) {
         self.parent = parent
     }
 
