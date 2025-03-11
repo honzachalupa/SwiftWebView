@@ -368,6 +368,7 @@ public struct SwiftWebView: View {
         self.controls = controls
         self._zoom = zoom
         self.submitButtonLabel = submitButtonLabel
+        self._currentUrl = State(initialValue: urlString.wrappedValue)
     }
 
     private func goToEnteredUrl(_ url: String) {
