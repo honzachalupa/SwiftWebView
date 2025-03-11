@@ -1,6 +1,12 @@
 import SwiftUI
 import WebKit
 
+#if os(iOS) || os(tvOS) || os(visionOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
+
 public enum WebViewControlsVariant {
     case fixed, closable, hidden
 }
@@ -46,7 +52,7 @@ public struct WebViewControls: View {
     public var body: some View {
         VStack(spacing: 0) {
             if (isControlsPresented) {
-                HStack(spacing: 12) {
+                HStack(spacing: 0) {
                     Button(action: onGoBack) {
                         Image(systemName: "chevron.left")
                     }
@@ -63,7 +69,9 @@ public struct WebViewControls: View {
                     .disabled(urlString.isEmpty)
                     
                     TextField("URL", text: $urlString)
+#if os(iOS) || os(tvOS) || os(visionOS)
                         .autocapitalization(.none)
+#endif
                         .disableAutocorrection(true)
                         .onSubmit { submitUrl() }
                     
@@ -103,6 +111,7 @@ public struct WebViewControls: View {
     }
 }
 
+#if os(iOS) || os(tvOS) || os(visionOS)
 @MainActor
 public class WebViewCoordinator: NSObject, WKNavigationDelegate {
     var parent: WebViewRepresentable
@@ -115,7 +124,6 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
         _ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!
     ) {
         DispatchQueue.main.async {
-            // self.parent.isLoading = true
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
         }
@@ -123,7 +131,6 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         DispatchQueue.main.async {
-            // self.parent.isLoading = false
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
 
@@ -138,7 +145,6 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
         _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
     ) {
         DispatchQueue.main.async {
-            // self.parent.isLoading = false
             self.parent.isGoBackEnabled = webView.canGoBack
             self.parent.isGoForwardEnabled = webView.canGoForward
         }
@@ -148,17 +154,15 @@ public class WebViewCoordinator: NSObject, WKNavigationDelegate {
 @MainActor
 public struct WebViewRepresentable: UIViewRepresentable {
     @Binding public var urlString: String
-    // @Binding public var isLoading: Bool
+    @Binding public var zoom: Double?
     @Binding public var isGoBackEnabled: Bool
     @Binding public var isGoForwardEnabled: Bool
-    
     var navigationAction: NavigationAction?
 
     public func makeCoordinator() -> WebViewCoordinator {
         WebViewCoordinator(self)
     }
 
-    @MainActor
     public func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.navigationDelegate = context.coordinator
@@ -167,20 +171,27 @@ public struct WebViewRepresentable: UIViewRepresentable {
             let request = URLRequest(url: url)
             webView.load(request)
         }
+        
+        if let zoom {
+            webView.pageZoom = zoom / 100
+        }
 
         return webView
     }
 
-    @MainActor
     public func updateUIView(_ webView: WKWebView, context: Context) {
         // Check if URL has changed and load it
         if let urlToLoad = URL(string: urlString), webView.url?.absoluteString != urlString {
             let request = URLRequest(url: urlToLoad)
             webView.load(request)
         }
+        
+        if let zoom {
+            webView.pageZoom = zoom / 100
+        }
 
         // Handle navigation actions
-        if let action = navigationAction, action != .none {
+        if let action = navigationAction, action != NavigationAction.none {
             switch action {
                 case .goBack:
                     webView.goBack()
@@ -211,10 +222,123 @@ public struct WebViewRepresentable: UIViewRepresentable {
         }
     }
 }
+#elseif os(macOS)
+@MainActor
+public class WebViewCoordinator: NSObject, WKNavigationDelegate {
+    var parent: WebViewRepresentable
+
+    public init(_ parent: WebViewRepresentable) {
+        self.parent = parent
+    }
+
+    public func webView(
+        _ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!
+    ) {
+        DispatchQueue.main.async {
+            self.parent.isGoBackEnabled = webView.canGoBack
+            self.parent.isGoForwardEnabled = webView.canGoForward
+        }
+    }
+
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        DispatchQueue.main.async {
+            self.parent.isGoBackEnabled = webView.canGoBack
+            self.parent.isGoForwardEnabled = webView.canGoForward
+
+            // Update URL string when navigation completes
+            if let currentUrl = webView.url?.absoluteString {
+                self.parent.urlString = currentUrl
+            }
+        }
+    }
+
+    public func webView(
+        _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
+    ) {
+        DispatchQueue.main.async {
+            self.parent.isGoBackEnabled = webView.canGoBack
+            self.parent.isGoForwardEnabled = webView.canGoForward
+        }
+    }
+}
+
+@MainActor
+public struct WebViewRepresentable: NSViewRepresentable {
+    @Binding public var urlString: String
+    @Binding public var zoom: Double?
+    @Binding public var isGoBackEnabled: Bool
+    @Binding public var isGoForwardEnabled: Bool
+    var navigationAction: NavigationAction?
+
+    public func makeCoordinator() -> WebViewCoordinator {
+        WebViewCoordinator(self)
+    }
+
+    public func makeNSView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.navigationDelegate = context.coordinator
+        
+        if let zoom {
+            webView.pageZoom = zoom / 100
+        }
+
+        if let url = URL(string: urlString) {
+            let request = URLRequest(url: url)
+            webView.load(request)
+        }
+
+        return webView
+    }
+
+    public func updateNSView(_ webView: WKWebView, context: Context) {
+        // Check if URL has changed and load it
+        if let urlToLoad = URL(string: urlString), webView.url?.absoluteString != urlString {
+            let request = URLRequest(url: urlToLoad)
+            webView.load(request)
+        }
+        
+        if let zoom {
+            webView.pageZoom = zoom / 100
+        }
+
+        // Handle navigation actions
+        if let action = navigationAction, action != NavigationAction.none {
+            switch action {
+                case .goBack:
+                    webView.goBack()
+                case .goForward:
+                    webView.goForward()
+                case .reload:
+                    webView.reload()
+                case .goToUrl(let url):
+                    // Force reload the current URL
+                    if let urlToLoad = URL(string: url) {
+                        let request = URLRequest(url: urlToLoad)
+                        webView.load(request)
+                    }
+                case .none:
+                    break
+            }
+        }
+
+        // Update navigation state
+        DispatchQueue.main.async {
+            isGoBackEnabled = webView.canGoBack
+            isGoForwardEnabled = webView.canGoForward
+
+            // Update the URL string when navigation completes
+            if let currentUrl = webView.url?.absoluteString {
+                self.urlString = currentUrl
+            }
+        }
+    }
+}
+#endif
 
 public struct SwiftWebView: View {
     @Binding public var urlString: String
     public var controls: WebViewControlsVariant = .hidden
+    @Binding public var zoom: Double?
     public var submitButtonLabel: String = "Go"
     
     @State private var paddingTop: Double = 0
@@ -222,6 +346,18 @@ public struct SwiftWebView: View {
     @State private var isGoBackEnabled: Bool = false
     @State private var isGoForwardEnabled: Bool = false
     @State private var currentUrl: String = ""
+    
+    public init(
+        urlString: Binding<String>,
+        controls: WebViewControlsVariant = .hidden,
+        zoom: Binding<Double?> = .constant(nil),
+        submitButtonLabel: String = "Go"
+    ) {
+        self._urlString = urlString
+        self.controls = controls
+        self._zoom = zoom
+        self.submitButtonLabel = submitButtonLabel
+    }
 
     private func goToEnteredUrl(_ url: String) {
         urlString = url
@@ -230,13 +366,18 @@ public struct SwiftWebView: View {
 
     public var body: some View {
         ZStack {
-            WebViewRepresentable(
-                urlString: $urlString,
-                isGoBackEnabled: $isGoBackEnabled,
-                isGoForwardEnabled: $isGoForwardEnabled,
-                navigationAction: navigationAction
-            )
-            .padding(.top, paddingTop)
+            if (urlString.isEmpty) {
+                ContentUnavailableView("Blank window", systemImage: "uiwindow.split.2x1")
+            } else {
+                WebViewRepresentable(
+                    urlString: $urlString,
+                    zoom: $zoom,
+                    isGoBackEnabled: $isGoBackEnabled,
+                    isGoForwardEnabled: $isGoForwardEnabled,
+                    navigationAction: navigationAction
+                )
+                .padding(.top, paddingTop)
+            }
             
             if controls != .hidden {
                 WebViewControls(
@@ -253,6 +394,8 @@ public struct SwiftWebView: View {
                 )
             }
         }
+        .frame(maxWidth: .infinity)
+        .background(Material.bar)
         .onChange(of: navigationAction) { _, newValue in
             // Reset navigation action after it's been processed
             if newValue != .none {
